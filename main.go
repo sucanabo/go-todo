@@ -7,13 +7,14 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 )
 
 type Model struct {
-	ID        uint `gorm:"primarykey"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID        int       `json:"id" gorm:"primarykey column:id;"`
+	CreatedAt time.Time `json:"created_at" gorm:"column: created_at;"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"column: updated_at;"`
 }
 
 type ToDoItemsModel struct {
@@ -23,6 +24,10 @@ type ToDoItemsModel struct {
 	Model
 }
 
+func (ToDoItemsModel) TableName() string {
+	return "todo_items"
+}
+
 type TodoItemCreation struct {
 	Title       string `json:"title" gorm:"column:title;"`
 	Description string `json:"description" gorm:"column:description;"`
@@ -30,7 +35,7 @@ type TodoItemCreation struct {
 }
 
 func (TodoItemCreation) TableName() string {
-	return "todo_items"
+	return ToDoItemsModel{}.TableName()
 }
 
 func main() {
@@ -49,7 +54,7 @@ func main() {
 		{
 			items.POST("", CreateItem(db))
 			items.GET("")
-			items.GET("/:id")
+			items.GET("/:id", GetItem(db))
 			items.PATCH("/:id")
 			items.DELETE("/:id")
 		}
@@ -84,6 +89,32 @@ func CreateItem(db *gorm.DB) func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "create todo item success",
 			"data":    data.ID,
+		})
+	}
+
+}
+func GetItem(db *gorm.DB) func(c *gin.Context) {
+	return func(c *gin.Context) {
+		var data ToDoItemsModel
+
+		id, err := strconv.Atoi(c.Param("id"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		data.ID = id
+		if err := db.First(&data).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"data": data,
 		})
 	}
 
