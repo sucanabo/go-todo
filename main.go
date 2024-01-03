@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -11,10 +13,45 @@ import (
 	"time"
 )
 
-type Model struct {
-	ID        int       `json:"id" gorm:"primarykey column:id;"`
-	CreatedAt time.Time `json:"created_at" gorm:"column: created_at;"`
-	UpdatedAt time.Time `json:"updated_at" gorm:"column: updated_at;"`
+type ItemStatus int
+
+const (
+	ItemStatusDoing = iota
+	ItemStatusDone
+	ItemStatusDeleted
+)
+
+var allItemStatuses = [3]string{"doing", "done", "deleted"}
+
+func (item ItemStatus) String() string {
+	return allItemStatuses[item]
+}
+func parseStr2ItemStatus(s string) (ItemStatus, error) {
+	for i := range allItemStatuses {
+		if allItemStatuses[i] == s {
+			return ItemStatus(i), nil
+		}
+	}
+	return ItemStatus(0), errors.New("invalid status string")
+}
+func (item *ItemStatus) Scan(value interface{}) error {
+	bytes, ok := value.([]byte)
+
+	if !ok {
+		return errors.New(fmt.Sprintf("fail to scan data form sql: %s", value))
+	}
+
+	v, err := parseStr2ItemStatus(string(bytes))
+	if err != nil {
+		return errors.New(fmt.Sprintf("fail to scan data from sql: %s", value))
+	}
+
+	*item = v
+	return nil
+}
+
+func (item *ItemStatus) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf("\"%s\"", item.String())), nil
 }
 
 type Paging struct {
@@ -36,7 +73,7 @@ type ToDoItemsModel struct {
 	ID          int        `json:"id" gorm:"column:id;"`
 	Title       string     `json:"title"`
 	Description string     `json:"description"`
-	Status      string     `json:"status"`
+	Status      ItemStatus `json:"status"`
 	CreatedAt   *time.Time `json:"created_at" gorm:"column:created_at;"`
 	UpdatedAt   *time.Time `json:"updated_at" gorm:"column:updated_at;"`
 }
@@ -46,9 +83,9 @@ func (ToDoItemsModel) TableName() string {
 }
 
 type TodoItemCreation struct {
+	ID          int    `json:"id" gorm:"column:id;"`
 	Title       string `json:"title" gorm:"column:title;"`
 	Description string `json:"description" gorm:"column:description;"`
-	Model
 }
 
 func (TodoItemCreation) TableName() string {
