@@ -17,11 +17,28 @@ type Model struct {
 	UpdatedAt time.Time `json:"updated_at" gorm:"column: updated_at;"`
 }
 
+type Paging struct {
+	Page  int   `json:"page" form:"page"`
+	Limit int   `json:"limit" form:"limit"`
+	Total int64 `json:"total" form:"-"`
+}
+
+func (p *Paging) Process() {
+	if p.Page <= 0 {
+		p.Page = 1
+	}
+	if p.Limit <= 0 {
+		p.Limit = 10
+	}
+}
+
 type ToDoItemsModel struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Status      string `json:"status"`
-	Model
+	ID          int        `json:"id" gorm:"column:id;"`
+	Title       string     `json:"title"`
+	Description string     `json:"description"`
+	Status      string     `json:"status"`
+	CreatedAt   *time.Time `json:"created_at" gorm:"column:created_at;"`
+	UpdatedAt   *time.Time `json:"updated_at" gorm:"column:updated_at;"`
 }
 
 func (ToDoItemsModel) TableName() string {
@@ -63,7 +80,7 @@ func main() {
 		items := v1.Group("/items")
 		{
 			items.POST("", CreateItem(db))
-			items.GET("")
+			items.GET("", GetItems(db))
 			items.GET("/:id", GetItem(db))
 			items.PATCH("/:id", UpdateItem(db))
 			items.DELETE("/:id", DeleteItem(db))
@@ -182,6 +199,43 @@ func DeleteItem(db *gorm.DB) func(c *gin.Context) {
 
 		c.JSON(http.StatusOK, gin.H{
 			"data": true,
+		})
+	}
+
+}
+func GetItems(db *gorm.DB) func(c *gin.Context) {
+	return func(c *gin.Context) {
+		var paging Paging
+
+		if err := c.ShouldBind(&paging); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		paging.Process()
+
+		offset := (paging.Page - 1) * paging.Limit
+		var items []ToDoItemsModel
+
+		db = db.Where("status <> ?", "deleted")
+
+		if err := db.Table(ToDoItemsModel{}.TableName()).
+			Count(&paging.Total).
+			Limit(paging.Limit).
+			Offset(offset).
+			Order("id desc").
+			Find(&items).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"data":   items,
+			"paging": paging,
 		})
 	}
 
