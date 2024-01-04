@@ -7,13 +7,14 @@ import (
 
 type ToDoItem struct {
 	common.SQLModel
-	Title       string     `json:"title"`
-	Description string     `json:"description"`
-	Status      ItemStatus `json:"status"`
+	Title       string      `json:"title"`
+	Description string      `json:"description"`
+	Status      *ItemStatus `json:"status"`
 }
 
 var (
 	ErrTitleIsBlank = errors.New("title cannot be blank")
+	ErrItemDeleted  = errors.New("this item was deleted")
 )
 
 func (ToDoItem) TableName() string {
@@ -39,5 +40,3 @@ type TodoItemUpdate struct {
 func (TodoItemUpdate) TableName() string {
 	return ToDoItem{}.TableName()
 }
-
-type ItemStatus int

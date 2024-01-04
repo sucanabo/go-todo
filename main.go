@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"todo/common"
 	"todo/modules/item/model"
 	ginitem "todo/modules/item/transport/gin"
@@ -30,8 +29,8 @@ func main() {
 			items.POST("", ginitem.GetItem(db))
 			items.GET("", GetItems(db))
 			items.GET("/:id", ginitem.GetItem(db))
-			items.PATCH("/:id", UpdateItem(db))
-			items.DELETE("/:id", DeleteItem(db))
+			items.PATCH("/:id", ginitem.UpdateItem(db))
+			items.DELETE("/:id", ginitem.DeleteItem(db))
 		}
 	}
 
@@ -41,60 +40,6 @@ func main() {
 		})
 	})
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
-}
-
-func UpdateItem(db *gorm.DB) func(c *gin.Context) {
-	return func(c *gin.Context) {
-		var data model.TodoItemUpdate
-
-		id, err := strconv.Atoi(c.Param("id"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err.Error(),
-			})
-			return
-		}
-
-		if err := c.ShouldBind(&data); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err.Error(),
-			})
-			return
-		}
-
-		if err := db.Where("id = ?", id).Updates(&data).Error; err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err.Error(),
-			})
-			return
-		}
-
-		c.JSON(http.StatusOK, common.NewSimpleResponse(true))
-	}
-
-}
-func DeleteItem(db *gorm.DB) func(c *gin.Context) {
-	return func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err.Error(),
-			})
-			return
-		}
-
-		if err := db.Table(model.ToDoItem{}.TableName()).Where("id = ?", id).Updates(map[string]interface{}{
-			"status": "deleted",
-		}).Error; err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err.Error(),
-			})
-			return
-		}
-
-		c.JSON(http.StatusOK, common.NewSimpleResponse(true))
-	}
-
 }
 func GetItems(db *gorm.DB) func(c *gin.Context) {
 	return func(c *gin.Context) {

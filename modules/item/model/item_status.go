@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+type ItemStatus int
+
 const (
 	ItemStatusDoing = iota
 	ItemStatusDone
